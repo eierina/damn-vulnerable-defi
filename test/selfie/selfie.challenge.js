@@ -30,7 +30,6 @@ describe('[Challenge] Selfie', function () {
     });
 
     it('Exploit', async function () {
-        console.log("attacker address %s", attacker.address);
         const SelfieAttackContractFactory = await ethers.getContractFactory('SelfieAttackContract', attacker);
         const attackContract = await SelfieAttackContractFactory.deploy(
             attacker.address,
